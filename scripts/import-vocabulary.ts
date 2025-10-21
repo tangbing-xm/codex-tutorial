@@ -12,7 +12,7 @@ interface WordEntry {
     word: {
       wordHead: string;
       wordId: string;
-      content: any;
+      content: Record<string, unknown>;
     };
   };
   bookId: string;
@@ -131,4 +131,3 @@ importVocabularyBook(filePath)
     console.error("\n💥 Import failed:", error);
     process.exit(1);
   });
-

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   index,
   integer,
@@ -59,6 +60,37 @@ export type AdminUserInsert = typeof adminUsers.$inferInsert;
 export type AdminSession = typeof adminSessions.$inferSelect;
 export type AdminSessionInsert = typeof adminSessions.$inferInsert;
 
+export const books = pgTable(
+  "books",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    bookId: text("book_id").notNull().unique(),
+    title: text("title").notNull(),
+    wordCount: integer("word_count").notNull(),
+    coverUrl: text("cover_url"),
+    tags: text("tags").array(),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    bookIdUnique: uniqueIndex("books_book_id_unique").on(table.bookId),
+    titleIdx: index("books_title_idx").on(table.title),
+  }),
+);
+
+export type Book = typeof books.$inferSelect;
+export type BookInsert = typeof books.$inferInsert;
+
 export const words = pgTable(
   "words",
   {
@@ -83,4 +115,3 @@ export const words = pgTable(
 
 export type Word = typeof words.$inferSelect;
 export type WordInsert = typeof words.$inferInsert;
-
