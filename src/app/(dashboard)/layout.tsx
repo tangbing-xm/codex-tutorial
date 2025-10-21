@@ -80,21 +80,21 @@ export default function DashboardLayout({
           })}
         </nav>
         <div className="border-t border-border pt-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-medium">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             </div>
             <Button
-              variant="ghost"
-              className="h-9 w-9 rounded-full p-0 text-muted-foreground hover:text-destructive"
+              variant="outline"
+              className="justify-start gap-2 text-sm"
               onClick={() => {
                 signout();
                 router.replace("/signin");
               }}
-              aria-label="退出登录"
             >
               <LogOut className="h-4 w-4" />
+              退出登录
             </Button>
           </div>
         </div>
@@ -124,4 +124,3 @@ export default function DashboardLayout({
     </div>
   );
 }
-
