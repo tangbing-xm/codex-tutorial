@@ -75,7 +75,7 @@ export default function DashboardLayout({
     <div className="flex min-h-screen bg-muted/40 text-foreground">
       <aside className="hidden min-h-screen w-64 flex-col border-r border-border bg-card px-4 py-6 lg:flex">
         <div className="px-2">
-          <span className="text-lg font-semibold tracking-tight">词书后台</span>
+          <span className="text-lg font-semibold tracking-tight">单词书后台</span>
           <p className="mt-1 text-sm text-muted-foreground">管理系统控制台</p>
         </div>
         <nav className="mt-8 flex flex-1 flex-col space-y-1">
