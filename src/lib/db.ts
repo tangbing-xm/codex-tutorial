@@ -1,11 +1,12 @@
 import postgres from "postgres";
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
-import { adminSessions, adminUsers } from "../db/schema";
+import { adminSessions, adminUsers, words } from "../db/schema";
 
 const schema = {
   adminUsers,
   adminSessions,
+  words,
 };
 
 type DrizzleDb = PostgresJsDatabase<typeof schema>;

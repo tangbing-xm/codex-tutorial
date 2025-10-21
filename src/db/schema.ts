@@ -59,27 +59,15 @@ export type AdminUserInsert = typeof adminUsers.$inferInsert;
 export type AdminSession = typeof adminSessions.$inferSelect;
 export type AdminSessionInsert = typeof adminSessions.$inferInsert;
 
-export const vocabularyBooks = pgTable(
-  "vocabulary_books",
+export const words = pgTable(
+  "words",
   {
     id: uuid("id").defaultRandom().primaryKey(),
+    wordRank: integer("word_rank").notNull(),
+    headWord: text("head_word").notNull(),
+    content: jsonb("content").notNull(),
     bookId: text("book_id").notNull(),
-    bookName: text("book_name").notNull(),
-    grade: text("grade"),
-    semester: text("semester"),
-    publisher: text("publisher"),
-    totalWords: integer("total_words").notNull(),
-    coverImageUrl: text("cover_image_url"),
-    wordsData: jsonb("words_data").notNull(),
-    tags: text("tags").array(),
-    status: text("status").notNull().default("active"),
     createdAt: timestamp("created_at", {
-      withTimezone: true,
-      mode: "date",
-    })
-      .notNull()
-      .defaultNow(),
-    updatedAt: timestamp("updated_at", {
       withTimezone: true,
       mode: "date",
     })
@@ -87,11 +75,12 @@ export const vocabularyBooks = pgTable(
       .defaultNow(),
   },
   (table) => ({
-    bookIdUnique: uniqueIndex("vocabulary_books_book_id_unique").on(table.bookId),
-    statusIdx: index("vocabulary_books_status_idx").on(table.status),
+    bookIdIdx: index("words_book_id_idx").on(table.bookId),
+    headWordIdx: index("words_head_word_idx").on(table.headWord),
+    wordRankIdx: index("words_word_rank_idx").on(table.bookId, table.wordRank),
   }),
 );
 
-export type VocabularyBook = typeof vocabularyBooks.$inferSelect;
-export type VocabularyBookInsert = typeof vocabularyBooks.$inferInsert;
+export type Word = typeof words.$inferSelect;
+export type WordInsert = typeof words.$inferInsert;
 
