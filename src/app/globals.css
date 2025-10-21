@@ -8,6 +8,17 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: #ffffff;
+  --color-card-foreground: #111827;
+  --color-muted: #f4f4f5;
+  --color-muted-foreground: #6b7280;
+  --color-border: #e5e7eb;
+  --color-input: #d1d5db;
+  --color-ring: #6366f1;
+  --color-primary: #1d4ed8;
+  --color-primary-foreground: #f8fafc;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #f8fafc;
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
