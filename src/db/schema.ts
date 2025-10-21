@@ -1,5 +1,7 @@
 import {
   index,
+  integer,
+  jsonb,
   pgTable,
   text,
   timestamp,
@@ -56,4 +58,40 @@ export type AdminUser = typeof adminUsers.$inferSelect;
 export type AdminUserInsert = typeof adminUsers.$inferInsert;
 export type AdminSession = typeof adminSessions.$inferSelect;
 export type AdminSessionInsert = typeof adminSessions.$inferInsert;
+
+export const vocabularyBooks = pgTable(
+  "vocabulary_books",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    bookId: text("book_id").notNull(),
+    bookName: text("book_name").notNull(),
+    grade: text("grade"),
+    semester: text("semester"),
+    publisher: text("publisher"),
+    totalWords: integer("total_words").notNull(),
+    coverImageUrl: text("cover_image_url"),
+    wordsData: jsonb("words_data").notNull(),
+    tags: text("tags").array(),
+    status: text("status").notNull().default("active"),
+    createdAt: timestamp("created_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", {
+      withTimezone: true,
+      mode: "date",
+    })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => ({
+    bookIdUnique: uniqueIndex("vocabulary_books_book_id_unique").on(table.bookId),
+    statusIdx: index("vocabulary_books_status_idx").on(table.status),
+  }),
+);
+
+export type VocabularyBook = typeof vocabularyBooks.$inferSelect;
+export type VocabularyBookInsert = typeof vocabularyBooks.$inferInsert;
 
