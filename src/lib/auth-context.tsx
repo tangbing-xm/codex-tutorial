@@ -9,105 +9,79 @@ import {
   useState,
 } from "react";
 
-type StoredAdminUser = {
+export type AuthUser = {
   id: string;
   name: string;
   email: string;
-  password: string;
+  role: "system" | "admin";
 };
-
-export type AuthUser = Omit<StoredAdminUser, "password">;
 
 type AuthResult = { success: true } | { success: false; message: string };
 
 type AuthContextValue = {
   user: AuthUser | null;
   isLoaded: boolean;
-  adminUsers: AuthUser[];
   signin: (email: string, password: string) => Promise<AuthResult>;
   signup: (
-    payload: Pick<StoredAdminUser, "name" | "email" | "password">,
+    payload: Pick<AuthUser, "name" | "email"> & { password: string },
   ) => Promise<AuthResult>;
-  signout: () => void;
+  signout: () => Promise<void>;
+  refresh: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const ADMIN_USERS_KEY = "shadcn-admin-users";
-const CURRENT_USER_KEY = "shadcn-admin-current-user";
-
-function readFromStorage<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") {
-    return fallback;
-  }
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) {
-      return fallback;
-    }
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeToStorage<T>(key: string, value: T) {
-  if (typeof window === "undefined") {
-    return;
-  }
-  try {
-    window.localStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    // noop
-  }
-}
-
-function sanitizeUsers(users: StoredAdminUser[]): AuthUser[] {
-  return users.map(({ password: _password, ...rest }) => {
-    void _password;
-    return rest;
+async function readSession(): Promise<AuthUser | null> {
+  const response = await fetch("/api/auth/session", {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
   });
+  if (!response.ok) {
+    return null;
+  }
+  const data = (await response.json()) as { user?: AuthUser | null };
+  return data.user ?? null;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [adminUsers, setAdminUsers] = useState<StoredAdminUser[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  useEffect(() => {
-    const storedUsers = readFromStorage<StoredAdminUser[]>(ADMIN_USERS_KEY, []);
-    const storedCurrent = readFromStorage<AuthUser | null>(
-      CURRENT_USER_KEY,
-      null,
-    );
-    setAdminUsers(storedUsers);
-    setUser(storedCurrent);
-    setIsLoaded(true);
+  const refresh = useCallback(async () => {
+    try {
+      const sessionUser = await readSession();
+      setUser(sessionUser);
+    } finally {
+      setIsLoaded(true);
+    }
   }, []);
 
-  const persistUsers = useCallback((users: StoredAdminUser[]) => {
-    setAdminUsers(users);
-    writeToStorage(ADMIN_USERS_KEY, users);
-  }, []);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   const signin = useCallback(
     async (email: string, password: string): Promise<AuthResult> => {
-      const match = adminUsers.find(
-        (item) => item.email === email && item.password === password,
-      );
-      if (!match) {
-        return { success: false, message: "邮箱或密码错误" };
-      }
-      const sanitized: AuthUser = {
-        id: match.id,
-        email: match.email,
-        name: match.name,
+      const response = await fetch("/api/auth/signin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        user?: AuthUser;
+        error?: string;
       };
-      setUser(sanitized);
-      writeToStorage(CURRENT_USER_KEY, sanitized);
+      if (!response.ok || !data.user) {
+        return {
+          success: false,
+          message: data.error ?? "邮箱或密码错误",
+        };
+      }
+      setUser(data.user);
       return { success: true };
     },
-    [adminUsers],
+    [],
   );
 
   const signup = useCallback(
@@ -115,50 +89,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       name,
       email,
       password,
-    }: Pick<StoredAdminUser, "name" | "email" | "password">): Promise<AuthResult> => {
-      const exists = adminUsers.some((item) => item.email === email);
-      if (exists) {
-        return { success: false, message: "该邮箱已被注册" };
+    }: Pick<AuthUser, "name" | "email"> & { password: string }): Promise<AuthResult> => {
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          email,
+          password,
+        }),
+      });
+      const data = (await response.json().catch(() => ({}))) as {
+        user?: AuthUser;
+        error?: string;
+      };
+      if (!response.ok || !data.user) {
+        return {
+          success: false,
+          message: data.error ?? "注册失败，请稍后再试",
+        };
       }
-      const id =
-        typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
-          ? crypto.randomUUID()
-          : `admin-${Date.now()}`;
-      const newUser: StoredAdminUser = {
-        id,
-        name,
-        email,
-        password,
-      };
-      const nextUsers = [...adminUsers, newUser];
-      persistUsers(nextUsers);
-      const sanitized: AuthUser = {
-        id: newUser.id,
-        email: newUser.email,
-        name: newUser.name,
-      };
-      setUser(sanitized);
-      writeToStorage(CURRENT_USER_KEY, sanitized);
+      setUser(data.user);
       return { success: true };
     },
-    [adminUsers, persistUsers],
+    [],
   );
 
-  const signout = useCallback(() => {
+  const signout = useCallback(async () => {
+    await fetch("/api/auth/signout", {
+      method: "POST",
+    });
     setUser(null);
-    writeToStorage(CURRENT_USER_KEY, null);
   }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
       isLoaded,
-      adminUsers: sanitizeUsers(adminUsers),
       signin,
       signup,
       signout,
+      refresh,
     }),
-    [adminUsers, isLoaded, signin, signup, signout, user],
+    [isLoaded, refresh, signin, signup, signout, user],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

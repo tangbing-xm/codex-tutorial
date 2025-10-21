@@ -8,19 +8,6 @@ import { useAuth } from "@/lib/auth-context";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const NAV_ITEMS = [
-  {
-    href: "/books",
-    label: "单词书管理",
-    icon: BookOpen,
-  },
-  {
-    href: "/admin-users",
-    label: "管理员管理",
-    icon: Users,
-  },
-];
-
 export default function DashboardLayout({
   children,
 }: {
@@ -33,7 +20,18 @@ export default function DashboardLayout({
   useEffect(() => {
     if (!isLoaded) return;
     if (!user) {
-      router.replace("/signin");
+      const checkAvailability = async () => {
+        const response = await fetch("/api/auth/availability");
+        if (!response.ok) {
+          router.replace("/signin");
+          return;
+        }
+        const data = (await response.json()) as {
+          allowInitialSignup: boolean;
+        };
+        router.replace(data.allowInitialSignup ? "/signup" : "/signin");
+      };
+      void checkAvailability();
     }
   }, [isLoaded, router, user]);
 
@@ -51,6 +49,28 @@ export default function DashboardLayout({
     return null;
   }
 
+  const navItems =
+    user.role === "system"
+      ? [
+          {
+            href: "/books",
+            label: "单词书管理",
+            icon: BookOpen,
+          },
+          {
+            href: "/admin-users",
+            label: "管理员管理",
+            icon: Users,
+          },
+        ]
+      : [
+          {
+            href: "/books",
+            label: "单词书管理",
+            icon: BookOpen,
+          },
+        ];
+
   return (
     <div className="flex min-h-screen bg-muted/40 text-foreground">
       <aside className="hidden min-h-screen w-64 flex-col border-r border-border bg-card px-4 py-6 lg:flex">
@@ -59,7 +79,7 @@ export default function DashboardLayout({
           <p className="mt-1 text-sm text-muted-foreground">管理系统控制台</p>
         </div>
         <nav className="mt-8 flex flex-1 flex-col space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {navItems.map((item) => {
             const Icon = item.icon;
             const isActive = pathname === item.href;
             return (
@@ -88,8 +108,8 @@ export default function DashboardLayout({
             <Button
               variant="outline"
               className="justify-start gap-2 text-sm"
-              onClick={() => {
-                signout();
+              onClick={async () => {
+                await signout();
                 router.replace("/signin");
               }}
             >
@@ -108,8 +128,8 @@ export default function DashboardLayout({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => {
-              signout();
+            onClick={async () => {
+              await signout();
               router.replace("/signin");
             }}
           >

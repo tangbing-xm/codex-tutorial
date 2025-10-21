@@ -1,6 +1,13 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { countAdminUsers } from "@/lib/auth-service";
 
-export default function Home() {
+export default async function Home() {
+  const adminCount = await countAdminUsers();
+  if (adminCount === 0) {
+    redirect("/signup");
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-6 text-center">
@@ -8,7 +15,7 @@ export default function Home() {
           欢迎来到词书管理后台
         </h1>
         <p className="text-base text-muted-foreground">
-          请先登录管理员账号以访问单词书和管理员管理功能。如果还没有账号，可以先注册，再前往相关页面开始操作。
+          请先登录管理员账号以访问单词书和管理员管理功能。
         </p>
         <div className="flex flex-col gap-3 sm:flex-row">
           <Link

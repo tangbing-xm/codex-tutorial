@@ -26,6 +26,7 @@ export default function SignUpPage() {
   });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allowSignup, setAllowSignup] = useState<boolean | null>(null);
 
   useEffect(() => {
     if (isLoaded && user) {
@@ -33,8 +34,31 @@ export default function SignUpPage() {
     }
   }, [isLoaded, router, user]);
 
+  useEffect(() => {
+    const checkAvailability = async () => {
+      try {
+        const response = await fetch("/api/auth/availability");
+        if (!response.ok) {
+          setAllowSignup(false);
+          return;
+        }
+        const data = (await response.json()) as {
+          allowInitialSignup: boolean;
+        };
+        setAllowSignup(data.allowInitialSignup);
+      } catch {
+        setAllowSignup(false);
+      }
+    };
+    void checkAvailability();
+  }, []);
+
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (allowSignup === false) {
+      setError("当前不允许直接注册，请联系系统管理员");
+      return;
+    }
     if (formState.password !== formState.confirm) {
       setError("密码与确认密码不一致");
       return;
@@ -62,7 +86,15 @@ export default function SignUpPage() {
           <CardDescription>填写信息以创建第一个管理员账户。</CardDescription>
         </CardHeader>
         <CardContent>
+          {allowSignup === false ? (
+            <div className="mb-4 rounded-md border border-border bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+              系统已存在管理员，无法直接在此注册新的账号。请返回登录页或联系系统管理员协助创建。
+            </div>
+          ) : null}
           <form className="space-y-4" onSubmit={onSubmit}>
+            <div className="rounded-md border border-dashed border-border bg-muted/60 px-3 py-2 text-xs text-muted-foreground">
+              仅当系统尚未创建管理员时，才可以在此处注册首个系统管理员。如果已有管理员存在，请使用登录入口或联系系统管理员协助创建。
+            </div>
             <div className="space-y-2">
               <Label htmlFor="name">姓名</Label>
               <Input
@@ -129,7 +161,11 @@ export default function SignUpPage() {
             {error ? (
               <p className="text-sm text-destructive">{error}</p>
             ) : null}
-            <Button className="w-full" type="submit" disabled={isSubmitting}>
+            <Button
+              className="w-full"
+              type="submit"
+              disabled={isSubmitting || allowSignup === false || allowSignup === null}
+            >
               {isSubmitting ? "正在创建..." : "注册"}
             </Button>
           </form>
@@ -144,4 +180,3 @@ export default function SignUpPage() {
     </div>
   );
 }
-

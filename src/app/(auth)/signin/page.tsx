@@ -21,12 +21,33 @@ export default function SignInPage() {
   const [formState, setFormState] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [allowInitialSignup, setAllowInitialSignup] = useState<boolean | null>(
+    null,
+  );
 
   useEffect(() => {
     if (isLoaded && user) {
       router.replace("/books");
     }
   }, [isLoaded, router, user]);
+
+  useEffect(() => {
+    const checkAvailability = async () => {
+      const response = await fetch("/api/auth/availability");
+      if (!response.ok) {
+        setAllowInitialSignup(false);
+        return;
+      }
+      const data = (await response.json()) as {
+        allowInitialSignup: boolean;
+      };
+      setAllowInitialSignup(data.allowInitialSignup);
+      if (data.allowInitialSignup) {
+        router.replace("/signup");
+      }
+    };
+    void checkAvailability();
+  }, [router]);
 
   const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -92,14 +113,24 @@ export default function SignInPage() {
             </Button>
           </form>
           <p className="mt-6 text-center text-sm text-muted-foreground">
-            还没有账号？{" "}
-            <Link className="text-primary underline-offset-4 hover:underline" href="/signup">
-              立即注册
-            </Link>
+            {allowInitialSignup === true ? (
+              <>
+                还没有账号？{" "}
+                <Link
+                  className="text-primary underline-offset-4 hover:underline"
+                  href="/signup"
+                >
+                  立即注册
+                </Link>
+              </>
+            ) : allowInitialSignup === false ? (
+              "请联系系统管理员创建新的后台账号"
+            ) : (
+              "正在检测系统状态..."
+            )}
           </p>
         </CardContent>
       </Card>
     </div>
   );
 }
-
