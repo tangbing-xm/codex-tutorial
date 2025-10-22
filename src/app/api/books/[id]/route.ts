@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
-import { books } from "@/db/schema";
+import { books, words } from "@/db/schema";
 import { db } from "@/lib/db";
 import { requireSessionUser } from "@/lib/auth-service";
 
@@ -189,6 +189,70 @@ export async function PATCH(
     console.error("Update book error:", error);
     return NextResponse.json(
       { error: "更新单词书失败" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const user = await requireSessionUser().catch(() => null);
+  if (!user) {
+    return NextResponse.json({ error: "未登录" }, { status: 401 });
+  }
+
+  const { id: rawId } = await context.params;
+  const bookId = rawId?.trim();
+  if (!bookId) {
+    return NextResponse.json({ error: "单词书 ID 不合法" }, { status: 400 });
+  }
+
+  try {
+    // First, check if the book exists
+    const [existingBook] = await db
+      .select({ bookId: books.bookId })
+      .from(books)
+      .where(eq(books.bookId, bookId))
+      .limit(1);
+
+    if (!existingBook) {
+      return NextResponse.json({ error: "单词书不存在" }, { status: 404 });
+    }
+
+    // Delete all words associated with this book first (cascade delete)
+    const deletedWords = await db
+      .delete(words)
+      .where(eq(words.bookId, bookId))
+      .returning({ id: words.id });
+
+    // Then delete the book itself
+    const [deletedBook] = await db
+      .delete(books)
+      .where(eq(books.bookId, bookId))
+      .returning(bookSelection);
+
+    if (!deletedBook) {
+      return NextResponse.json(
+        { error: "删除单词书失败" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "单词书删除成功",
+      deletedWordsCount: deletedWords.length,
+      book: {
+        id: deletedBook.bookId,
+        title: deletedBook.title,
+      },
+    });
+  } catch (error) {
+    console.error("Delete book error:", error);
+    return NextResponse.json(
+      { error: "删除单词书失败" },
       { status: 500 },
     );
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { BookOpen, Pencil, Plus, Search } from "lucide-react";
+import { BookOpen, Pencil, Plus, Search, Trash2 } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -80,6 +80,10 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
   });
   const [editError, setEditError] = useState("");
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletingBook, setDeletingBook] = useState<BookItem | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const stats = useMemo(() => {
     if (books.length === 0) {
@@ -259,6 +263,34 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
     });
     setEditDialogOpen(false);
     resetEditState();
+  };
+
+  const openDeleteDialog = useCallback((book: BookItem) => {
+    setDeletingBook(book);
+    setDeleteDialogOpen(true);
+  }, []);
+
+  const handleDelete = async () => {
+    if (!deletingBook) {
+      return;
+    }
+
+    setIsDeleting(true);
+    const response = await fetch(`/api/books/${encodeURIComponent(deletingBook.id)}`, {
+      method: "DELETE",
+    });
+    setIsDeleting(false);
+
+    if (!response.ok) {
+      // You can add error toast here if needed
+      console.error("删除失败");
+      return;
+    }
+
+    // Remove the book from the list
+    setBooks((prev) => prev.filter((book) => book.id !== deletingBook.id));
+    setDeleteDialogOpen(false);
+    setDeletingBook(null);
   };
 
   return (
@@ -518,14 +550,25 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
                       {formatDate(book.updatedAt)}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(book)}
-                      >
-                        <Pencil className="mr-2 h-4 w-4" />
-                        编辑
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(book)}
+                        >
+                          <Pencil className="mr-2 h-4 w-4" />
+                          编辑
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDeleteDialog(book)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          删除
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -641,6 +684,59 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
               </Button>
             </DialogFooter>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open);
+          if (!open) {
+            setDeletingBook(null);
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>确认删除单词书</DialogTitle>
+            <DialogDescription>
+              此操作将永久删除单词书及其所有关联的单词数据，且无法恢复。
+            </DialogDescription>
+          </DialogHeader>
+          {deletingBook ? (
+            <div className="space-y-4">
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 p-4">
+                <p className="text-sm font-medium text-foreground">
+                  {deletingBook.title}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  ID: {deletingBook.id}
+                </p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  单词数量: {deletingBook.wordCount.toLocaleString()} 个
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                删除后，该单词书的所有 {deletingBook.wordCount.toLocaleString()}{" "}
+                个单词将从数据库中永久移除。
+              </p>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button type="button" variant="outline" disabled={isDeleting}>
+                    取消
+                  </Button>
+                </DialogClose>
+                <Button
+                  type="button"
+                  variant="destructive"
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? "删除中..." : "确认删除"}
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
