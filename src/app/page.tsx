@@ -12,7 +12,7 @@ export default async function Home() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
       <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-6 text-center">
         <h1 className="text-4xl font-bold tracking-tight text-foreground">
-          欢迎来到词书管理后台
+          欢迎来到单词书管理后台
         </h1>
         <p className="text-base text-muted-foreground">
           请先登录管理员账号以访问单词书和管理员管理功能。
