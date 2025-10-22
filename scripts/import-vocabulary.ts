@@ -15,7 +15,7 @@ interface WordEntry {
       content: Record<string, unknown>;
     };
   };
-  bookId: string;
+  bookId?: string; // Optional, will extract from wordId if not present
 }
 
 async function importVocabularyBook(filePath: string) {
@@ -49,9 +49,21 @@ async function importVocabularyBook(filePath: string) {
   for (let i = 0; i < jsonStrings.length; i++) {
     try {
       const wordEntry: WordEntry = JSON.parse(jsonStrings[i]);
+      
+      // Extract bookId from wordId if not present
+      // e.g., "CET4luan_1_1" -> "CET4luan_1"
+      if (!wordEntry.bookId && wordEntry.content?.word?.wordId) {
+        const wordId = wordEntry.content.word.wordId;
+        const parts = wordId.split('_');
+        if (parts.length >= 2) {
+          // Remove the last part (word number) to get bookId
+          wordEntry.bookId = parts.slice(0, -1).join('_');
+        }
+      }
+      
       wordsArray.push(wordEntry);
 
-      if (!bookId) {
+      if (!bookId && wordEntry.bookId) {
         bookId = wordEntry.bookId;
       }
 
@@ -91,7 +103,7 @@ async function importVocabularyBook(filePath: string) {
     wordRank: word.wordRank,
     headWord: word.headWord,
     content: word.content,
-    bookId: word.bookId,
+    bookId: word.bookId || bookId, // Use extracted bookId as fallback
   }));
 
   // Insert words in batches of 50
