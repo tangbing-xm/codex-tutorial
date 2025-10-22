@@ -70,9 +70,30 @@ export async function POST(request: Request) {
       role,
     });
 
+    // Fetch the complete user data with timestamps
+    const [fullUser] = await db
+      .select({
+        id: adminUsers.id,
+        name: adminUsers.name,
+        email: adminUsers.email,
+        role: adminUsers.role,
+        createdAt: adminUsers.createdAt,
+        updatedAt: adminUsers.updatedAt,
+      })
+      .from(adminUsers)
+      .where(eq(adminUsers.id, newUser.id))
+      .limit(1);
+
     return NextResponse.json(
       {
-        user: newUser,
+        user: fullUser
+          ? {
+              ...fullUser,
+              role: fullUser.role as "system" | "admin",
+              createdAt: fullUser.createdAt?.getTime?.() ?? 0,
+              updatedAt: fullUser.updatedAt?.getTime?.() ?? 0,
+            }
+          : null,
       },
       { status: 201 },
     );
