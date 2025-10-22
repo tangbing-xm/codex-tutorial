@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { adminUsers } from "@/db/schema";
@@ -15,13 +15,11 @@ const updateSchema = z
     "至少需要修改一项内容",
   );
 
-type RouteParams = {
-  params: {
-    id: string;
-  };
-};
-
-export async function PATCH(request: Request, { params }: RouteParams) {
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> },
+) {
+  const { id } = await context.params;
   const currentUser = await requireSessionUser().catch(() => null);
   if (!currentUser || currentUser.role !== "system") {
     return NextResponse.json(
@@ -39,7 +37,7 @@ export async function PATCH(request: Request, { params }: RouteParams) {
     );
   }
 
-  const target = await findUserById(params.id);
+  const target = await findUserById(id);
   if (!target) {
     return NextResponse.json(
       { error: "管理员不存在" },
