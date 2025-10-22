@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useMemo, useState } from "react";
-import { BookOpen, Plus, Search } from "lucide-react";
+import { BookOpen, Pencil, Plus, Search } from "lucide-react";
 import {
   Card,
   CardContent,
@@ -33,6 +33,13 @@ type BookItem = {
   updatedAt: number;
 };
 
+function parseTagsInput(value: string) {
+  return value
+    .split(/[,，\s]+/)
+    .map((tag) => tag.trim())
+    .filter(Boolean);
+}
+
 function formatDate(timestamp: number) {
   if (!timestamp) {
     return "—";
@@ -62,6 +69,17 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
   });
   const [createError, setCreateError] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBook, setEditingBook] = useState<BookItem | null>(null);
+  const [editForm, setEditForm] = useState({
+    id: "",
+    title: "",
+    wordCount: "",
+    coverUrl: "",
+    tags: "",
+  });
+  const [editError, setEditError] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const stats = useMemo(() => {
     if (books.length === 0) {
@@ -119,10 +137,7 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
       title: createForm.title.trim(),
       wordCount: Number.parseInt(createForm.wordCount, 10),
       coverUrl: createForm.coverUrl.trim(),
-      tags: createForm.tags
-        .split(/[,，\s]+/)
-        .map((tag) => tag.trim())
-        .filter(Boolean),
+      tags: parseTagsInput(createForm.tags),
     };
 
     if (!Number.isFinite(payload.wordCount)) {
@@ -157,6 +172,93 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
     });
     setCreateDialogOpen(false);
     resetCreateForm();
+  };
+
+  const resetEditState = useCallback(() => {
+    setEditingBook(null);
+    setEditForm({
+      id: "",
+      title: "",
+      wordCount: "",
+      coverUrl: "",
+      tags: "",
+    });
+    setEditError("");
+  }, []);
+
+  const openEditDialog = useCallback((book: BookItem) => {
+    setEditingBook(book);
+    setEditForm({
+      id: book.id,
+      title: book.title,
+      wordCount: book.wordCount.toString(),
+      coverUrl: book.coverUrl ?? "",
+      tags: book.tags.join(", "),
+    });
+    setEditError("");
+    setEditDialogOpen(true);
+  }, []);
+
+  const handleEdit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!editingBook) {
+      return;
+    }
+    setEditError("");
+
+    const payload = {
+      id: editForm.id.trim(),
+      title: editForm.title.trim(),
+      wordCount: Number.parseInt(editForm.wordCount, 10),
+      coverUrl: editForm.coverUrl.trim(),
+      tags: parseTagsInput(editForm.tags),
+    };
+
+    if (!Number.isFinite(payload.wordCount)) {
+      setEditError("单词数量必须是数字");
+      return;
+    }
+
+    setIsUpdating(true);
+    const response = await fetch(`/api/books/${encodeURIComponent(editingBook.id)}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        bookId: payload.id,
+        title: payload.title,
+        wordCount: payload.wordCount,
+        coverUrl: payload.coverUrl.length > 0 ? payload.coverUrl : undefined,
+        tags: payload.tags,
+      }),
+    });
+    setIsUpdating(false);
+
+    if (!response.ok) {
+      const data = (await response.json().catch(() => ({}))) as {
+        error?: string;
+      };
+      setEditError(data.error ?? "更新单词书失败，请稍后重试");
+      return;
+    }
+
+    const data = (await response.json()) as { book: BookItem };
+    setBooks((prev) => {
+      let replaced = false;
+      const next = prev.map((item) => {
+        if (item.id === editingBook.id) {
+          replaced = true;
+          return data.book;
+        }
+        return item;
+      });
+      if (!replaced) {
+        next.push(data.book);
+      }
+      next.sort((a, b) => b.updatedAt - a.updatedAt);
+      return next;
+    });
+    setEditDialogOpen(false);
+    resetEditState();
   };
 
   return (
@@ -354,6 +456,7 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
                 <th className="px-4 py-3 font-medium">词汇量</th>
                 <th className="px-4 py-3 font-medium">标签</th>
                 <th className="px-4 py-3 font-medium">最近更新</th>
+                <th className="px-4 py-3 font-medium text-right">操作</th>
               </tr>
             </thead>
             <tbody>
@@ -414,6 +517,16 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
                     <td className="px-4 py-3 text-muted-foreground">
                       {formatDate(book.updatedAt)}
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(book)}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        编辑
+                      </Button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -421,7 +534,115 @@ export function BooksClient({ initialBooks }: { initialBooks: BookItem[] }) {
           </table>
         </CardContent>
       </Card>
+
+      <Dialog
+        open={editDialogOpen}
+        onOpenChange={(open) => {
+          setEditDialogOpen(open);
+          if (!open) {
+            resetEditState();
+          }
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>编辑单词书</DialogTitle>
+            <DialogDescription>
+              更新单词书的基本信息，标签可使用逗号或空格分隔多个条目。
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={handleEdit}>
+            <div className="space-y-2">
+              <Label htmlFor="edit-book-id">单词书 ID</Label>
+              <Input
+                id="edit-book-id"
+                required
+                value={editForm.id}
+                onChange={(event) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    id: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-book-title">单词书标题</Label>
+              <Input
+                id="edit-book-title"
+                required
+                value={editForm.title}
+                onChange={(event) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    title: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-book-word-count">单词数量</Label>
+              <Input
+                id="edit-book-word-count"
+                type="number"
+                min={0}
+                required
+                value={editForm.wordCount}
+                onChange={(event) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    wordCount: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-book-cover-url">封面链接（可选）</Label>
+              <Input
+                id="edit-book-cover-url"
+                value={editForm.coverUrl}
+                onChange={(event) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    coverUrl: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-book-tags">标签（可选）</Label>
+              <Input
+                id="edit-book-tags"
+                value={editForm.tags}
+                onChange={(event) =>
+                  setEditForm((prev) => ({
+                    ...prev,
+                    tags: event.target.value,
+                  }))
+                }
+              />
+              <p className="text-xs text-muted-foreground">
+                多个标签可使用逗号、顿号或空格分隔。
+              </p>
+            </div>
+            {editError ? (
+              <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {editError}
+              </div>
+            ) : null}
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button type="button" variant="outline">
+                  取消
+                </Button>
+              </DialogClose>
+              <Button type="submit" disabled={isUpdating}>
+                {isUpdating ? "保存中..." : "保存修改"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
-
